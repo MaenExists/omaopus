@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# oma-player: resilient audio engine for OmaOpus using direct mpv IPC daemon
+# oma-player: high-performance audio engine for OmaOpus with auto-play queue and instant search cache
 set -eo pipefail
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omaopus"
-mkdir -p "$STATE_DIR"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omaopus"
+mkdir -p "$STATE_DIR" "$CACHE_DIR"
+
 STATUS_JSON="$STATE_DIR/status.json"
 QUEUE_JSON="$STATE_DIR/queue.json"
 FAVORITES_JSON="$STATE_DIR/favorites.json"
@@ -14,7 +16,7 @@ META_JSON="$STATE_DIR/current_meta.json"
 [ -f "$FAVORITES_JSON" ] || echo '[]' > "$FAVORITES_JSON"
 [ -f "$QUEUE_JSON" ] || echo '[]' > "$QUEUE_JSON"
 [ -f "$META_JSON" ] || echo '{}' > "$META_JSON"
-[ -f "$PREFS_JSON" ] || echo '{"volume":70,"activeTab":"search","soundEnabled":true}' > "$PREFS_JSON"
+[ -f "$PREFS_JSON" ] || echo '{"volume":70,"activeTab":"search","soundEnabled":true,"autoPlayQueue":true}' > "$PREFS_JSON"
 
 get_pref() {
   local key="$1"
@@ -65,6 +67,11 @@ ensure_daemon() {
         --gapless-audio=yes \
         --demuxer-max-bytes=16MiB \
         --demuxer-max-back-bytes=4MiB \
+        --demuxer-readahead-secs=15 \
+        --demuxer-lavf-probesize=32768 \
+        --demuxer-lavf-analyzeduration=0 \
+        --audio-buffer=0.2 \
+        --network-timeout=10 \
         --input-ipc-server="$MPV_SOCK" >/dev/null 2>&1 &
     for _ in {1..25}; do
       if [ -S "$MPV_SOCK" ]; then
@@ -79,6 +86,28 @@ send_mpv() {
   local cmd="$1"
   ensure_daemon
   echo "$cmd" | socat - "$MPV_SOCK" 2>/dev/null || echo '{"error":"socket error"}'
+}
+
+# Resolve stream URL with disk caching for immediate playback
+resolve_stream_url() {
+  local url="$1"
+  local vid_id
+  vid_id=$(echo "$url" | grep -oP '(?<=v=)[a-zA-Z0-9_-]+' || echo "$url")
+  local cache_file="$CACHE_DIR/${vid_id}.url"
+
+  # If cached within last 4 hours, use it immediately
+  if [ -f "$cache_file" ] && [ $(( $(date +%s) - $(stat -c %Y "$cache_file") )) -lt 14400 ]; then
+    cat "$cache_file"
+    return 0
+  fi
+
+  # Resolve fresh audio URL
+  local resolved
+  resolved=$(yt-dlp -g -f "251/140/ba/b" --no-warnings --no-playlist --no-check-certificates --socket-timeout 5 "$url" 2>/dev/null || echo "$url")
+  if [[ "$resolved" =~ ^https?:// ]]; then
+    echo "$resolved" > "$cache_file"
+  fi
+  echo "$resolved"
 }
 
 cmd="${1:-status}"
@@ -98,12 +127,20 @@ case "$cmd" in
     "$0" status
     ;;
 
+  prefetch)
+    url="$2"
+    if [ -n "$url" ]; then
+      resolve_stream_url "$url" >/dev/null 2>&1 &
+    fi
+    echo '{"ok":true}'
+    ;;
+
   status)
     ensure_daemon
     time_pos=$(send_mpv '{"command":["get_property","time-pos"]}' | jq -r '.data // 0' 2>/dev/null || echo '0')
     duration=$(send_mpv '{"command":["get_property","duration"]}' | jq -r '.data // 0' 2>/dev/null || echo '0')
-    pause_state=$(send_mpv '{"command":["get_property","pause"]}' | jq -r '.data // false' 2>/dev/null || echo 'false')
-    idle_state=$(send_mpv '{"command":["get_property","idle-active"]}' | jq -r '.data // true' 2>/dev/null || echo 'true')
+    pause_state=$(send_mpv '{"command":["get_property","pause"]}' | jq -r 'if .data == true then "true" elif .data == false then "false" else "false" end' 2>/dev/null || echo 'false')
+    idle_state=$(send_mpv '{"command":["get_property","idle-active"]}' | jq -r 'if .data == true then "true" elif .data == false then "false" else "true" end' 2>/dev/null || echo 'true')
     vol=$(send_mpv '{"command":["get_property","volume"]}' | jq -r '.data // 70' 2>/dev/null || echo '70')
     meta=$(cat "$META_JSON" 2>/dev/null || echo '{}')
     prefs=$(cat "$PREFS_JSON" 2>/dev/null || echo '{"volume":70}')
@@ -115,9 +152,19 @@ case "$cmd" in
       else
         state="playing"
       fi
+    else
+      # If idle and there are items in the queue, trigger AUTOPLAY next track
+      auto_play=$(get_pref "autoPlayQueue" "true")
+      if [ "$auto_play" = "true" ]; then
+        queue_count=$(jq 'length' "$QUEUE_JSON" 2>/dev/null || echo 0)
+        has_current_track=$(jq -r '.title // empty' "$META_JSON" 2>/dev/null || true)
+        if [ "$queue_count" -gt 0 ] && [ -n "$has_current_track" ]; then
+          # Play next track in background
+          "$0" next >/dev/null 2>&1 &
+        fi
+      fi
     fi
 
-    # Output status matching OmaOpus frontend contract
     jq -n -c \
       --arg state "$state" \
       --argjson pos "$time_pos" \
@@ -223,12 +270,21 @@ case "$cmd" in
           duration_str: $duration
         }' > "$META_JSON"
 
-      # Resolve streaming URL (fast audio format)
-      stream_url=$(yt-dlp -g -f "ba/b" "$url" 2>/dev/null || echo "$url")
+      # Fast URL resolution with disk caching
+      stream_url=$(resolve_stream_url "$url")
 
-      # Load in mpv
+      # Load in mpv and unpause immediately
       send_mpv "{\"command\":[\"loadfile\",$(printf '%s' "$stream_url" | jq -R .),\"replace\"]}" >/dev/null 2>&1 || true
+      send_mpv '{"command":["set_property","pause",false]}' >/dev/null 2>&1 || true
       play_sound play &
+
+      # In background: pre-resolve the NEXT track in queue for instant zero-gap transition
+      (
+        next_track_url=$(jq -r '.[0].url // empty' "$QUEUE_JSON" 2>/dev/null || true)
+        if [ -n "$next_track_url" ]; then
+          resolve_stream_url "$next_track_url" >/dev/null 2>&1
+        fi
+      ) &
     fi
     "$0" status
     ;;
@@ -250,6 +306,9 @@ case "$cmd" in
       jq -c --argjson item "$new_track" '. + [$item]' "$QUEUE_JSON" > "$QUEUE_JSON.tmp" \
         && mv "$QUEUE_JSON.tmp" "$QUEUE_JSON"
 
+      # Pre-resolve stream URL in background so when played next it starts instantly
+      resolve_stream_url "$url" >/dev/null 2>&1 &
+
       play_sound click &
     fi
     "$0" queue-list
@@ -267,7 +326,14 @@ case "$cmd" in
     ;;
 
   favorites-list)
-    cat "$FAVORITES_JSON" 2>/dev/null || echo '[]'
+    favs=$(cat "$FAVORITES_JSON" 2>/dev/null || echo '[]')
+    echo "$favs"
+    # Background prefetch top 2 favorites
+    (
+      echo "$favs" | jq -r '.[0:2][].url // empty' 2>/dev/null | while read -r u; do
+        [ -n "$u" ] && resolve_stream_url "$u" >/dev/null 2>&1
+      done
+    ) &
     ;;
 
   favorites-toggle)
@@ -297,35 +363,61 @@ case "$cmd" in
 
   search)
     query="$2"
-    limit="${3:-8}"
+    limit="${3:-6}"
     if [ -z "$query" ]; then
       echo '{"ok":true,"results":[]}'
       exit 0
     fi
 
-    results=$(yt-dlp --default-search "ytsearch$limit" \
+    # Check search cache first (instant response for repeat/common searches)
+    query_hash=$(printf '%s' "$query" | md5sum | awk '{print $1}')
+    search_cache="$CACHE_DIR/search_${query_hash}.json"
+    if [ -f "$search_cache" ] && [ $(( $(date +%s) - $(stat -c %Y "$search_cache") )) -lt 21600 ]; then
+      cat "$search_cache"
+      # Background pre-resolve top 2 search results
+      (
+        jq -r '.results[0:2][].url' "$search_cache" 2>/dev/null | while read -r u; do
+          [ -n "$u" ] && resolve_stream_url "$u" >/dev/null 2>&1
+        done
+      ) &
+      exit 0
+    fi
+
+    # Fast flat-playlist extraction
+    results=$(yt-dlp "ytsearch$limit:$query" \
+      --flat-playlist \
       --dump-json \
-      --no-playlist \
       --no-warnings \
-      "ytsearch$limit:$query" 2>/dev/null \
+      --no-playlist \
+      --no-check-certificates \
+      --socket-timeout 5 \
+      --compat-options no-youtube-unavailable-videos 2>/dev/null \
       | jq -s -c 'map({
           id: .id,
           title: (.title // "Unknown"),
-          artist: (.uploader // .channel // "Unknown"),
+          artist: (.channel // .uploader // "Unknown"),
           duration: (.duration_string // ""),
-          duration_secs: (.duration // 0),
-          url: (.webpage_url // ("https://www.youtube.com/watch?v=" + .id))
+          url: (.url // ("https://www.youtube.com/watch?v=" + .id))
         })') || results="[]"
 
     if [ -z "$results" ] || [ "$results" = "null" ]; then
       results="[]"
     fi
 
-    jq -n -c --argjson items "$results" '{ok: true, results: $items}'
+    out=$(jq -n -c --argjson items "$results" '{ok: true, results: $items}')
+    echo "$out" > "$search_cache"
+    echo "$out"
+
+    # Immediately pre-resolve top 2 results in background so clicking them is INSTANT
+    (
+      echo "$results" | jq -r '.[0:2][].url' 2>/dev/null | while read -r u; do
+        [ -n "$u" ] && resolve_stream_url "$u" >/dev/null 2>&1
+      done
+    ) &
     ;;
 
   *)
-    echo "Usage: $0 {ensure|restart-session|status|play|pause|toggle|next|prev|stop|volume <0-100>|set-pref <key> <val>|get-prefs|play-url <url> [title] [artist] [dur]|queue-url <url> [title] [artist] [dur]|queue-list|queue-clear|favorites-list|favorites-toggle <json>|sound <name>|search <query> [limit]}"
+    echo "Usage: $0 {ensure|restart-session|prefetch <url>|status|play|pause|toggle|next|prev|stop|volume <0-100>|set-pref <key> <val>|get-prefs|play-url <url> [title] [artist] [dur]|queue-url <url> [title] [artist] [dur]|queue-list|queue-clear|favorites-list|favorites-toggle <json>|sound <name>|search <query> [limit]}"
     exit 1
     ;;
 esac

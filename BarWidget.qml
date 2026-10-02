@@ -34,6 +34,7 @@ Panel {
   // User Preferences
   property string activeTab: "search"
   property bool soundEnabled: true
+  property bool autoPlayQueue: true
 
   // Search State
   property var searchResults: []
@@ -163,6 +164,13 @@ Panel {
     setPrefProc.running = true
   }
 
+  function toggleAutoPlay() {
+    autoPlayQueue = !autoPlayQueue
+    playSound("click")
+    setPrefProc.command = [root.backendPath, "set-pref", "autoPlayQueue", JSON.stringify(autoPlayQueue)]
+    setPrefProc.running = true
+  }
+
   function startSearch(query) {
     var trimmed = (query || "").trim()
     if (!trimmed || trimmed === lastQuery) return
@@ -224,6 +232,9 @@ Panel {
     if (prefs.soundEnabled !== undefined) {
       root.soundEnabled = prefs.soundEnabled === true
     }
+    if (prefs.autoPlayQueue !== undefined) {
+      root.autoPlayQueue = prefs.autoPlayQueue === true
+    }
   }
 
   function parsePrefs(raw) {
@@ -248,7 +259,7 @@ Panel {
 
   // Power-conscious reactive polling: runs only when open or active
   Timer {
-    interval: root.opened ? 1500 : (root.isPlaying ? 4000 : 15000)
+    interval: root.opened ? 1500 : (root.isPlaying ? 3500 : 12000)
     running: root.opened || root.isPlaying
     repeat: true
     onTriggered: {
@@ -370,9 +381,20 @@ Panel {
   }
 
   Process {
+    id: prefetchProc
+    command: []
+  }
+
+  function prefetchTrack(url) {
+    if (!url || prefetchProc.running) return
+    prefetchProc.command = [root.backendPath, "prefetch", url]
+    prefetchProc.running = true
+  }
+
+  Process {
     id: searchProc
     property string query: ""
-    command: [root.backendPath, "search", query, "8"]
+    command: [root.backendPath, "search", query, "6"]
     stdout: StdioCollector {
       id: searchOut
       waitForEnd: true
@@ -383,6 +405,9 @@ Panel {
         try {
           var parsed = JSON.parse(searchOut.text)
           root.searchResults = parsed.results || []
+          if (root.searchResults.length > 0 && root.searchResults[0].url) {
+            root.prefetchTrack(root.searchResults[0].url)
+          }
         } catch (e) {
           root.searchResults = []
         }
@@ -518,8 +543,17 @@ Panel {
         }
 
         Item {
-          width: parent.width - x - soundToggleBtn.width - restartBtn.width - closeBtn.width - Style.space(12)
+          width: parent.width - x - autoplayToggleBtn.width - soundToggleBtn.width - restartBtn.width - closeBtn.width - Style.space(16)
           height: 1
+        }
+
+        // Autoplay Queue Toggle Button
+        PanelActionButton {
+          id: autoplayToggleBtn
+          iconText: root.autoPlayQueue ? "󰈑" : "󰈒"
+          tooltipText: root.autoPlayQueue ? "Autoplay Queue: ON" : "Autoplay Queue: OFF"
+          anchors.verticalCenter: parent.verticalCenter
+          onClicked: root.toggleAutoPlay()
         }
 
         // Sound Toggle Button
@@ -781,6 +815,11 @@ Panel {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
+              onContainsMouseChanged: {
+                if (containsMouse && modelData && modelData.url) {
+                  root.prefetchTrack(modelData.url)
+                }
+              }
               onClicked: {
                 resultsList.currentIndex = index
                 root.playTrack(modelData)
@@ -916,6 +955,11 @@ Panel {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
+              onContainsMouseChanged: {
+                if (containsMouse && modelData && modelData.url) {
+                  root.prefetchTrack(modelData.url)
+                }
+              }
               onClicked: root.playTrack(modelData)
             }
 
@@ -995,6 +1039,11 @@ Panel {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
+              onContainsMouseChanged: {
+                if (containsMouse && modelData && modelData.url) {
+                  root.prefetchTrack(modelData.url)
+                }
+              }
               onClicked: root.playTrack(modelData)
             }
 
