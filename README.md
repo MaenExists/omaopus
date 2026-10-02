@@ -36,7 +36,13 @@ OmaOpus docks into your Omarchy status bar with a clean, modern icon, hover deta
 
 ## 🚀 Installation
 
-### Option 1: Link into Omarchy Plugins
+### Option 1: Official Omarchy CLI (`omarchy plugin add`)
+
+```bash
+omarchy plugin add https://github.com/MaenExists/omaopus.git --enable
+```
+
+### Option 2: Manual / Development Symlink
 
 ```bash
 git clone https://github.com/MaenExists/omaopus.git ~/Builds/OmaOpus
@@ -44,24 +50,7 @@ mkdir -p ~/.config/omarchy/plugins
 ln -sfn ~/Builds/OmaOpus ~/.config/omarchy/plugins/maen.omaopus
 ```
 
-### Option 2: Add to Omarchy Bar
-
-Edit `~/.config/omarchy/shell.json`:
-
-```json
-{
-  "bar": {
-    "layout": {
-      "right": [
-        { "id": "maen.omaopus" },
-        { "id": "omarchy.tray" }
-      ]
-    }
-  }
-}
-```
-
-Omarchy shell hot-reloads automatically on save!
+Then ensure `maen.omaopus` is listed under `bar.layout` in `~/.config/omarchy/shell.json`.
 
 ---
 
