@@ -7,15 +7,34 @@ mkdir -p "$STATE_DIR"
 STATUS_JSON="$STATE_DIR/status.json"
 QUEUE_JSON="$STATE_DIR/queue.json"
 FAVORITES_JSON="$STATE_DIR/favorites.json"
+PREFS_JSON="$STATE_DIR/preferences.json"
 MPV_SOCK="$STATE_DIR/mpv.sock"
 META_JSON="$STATE_DIR/current_meta.json"
 
 [ -f "$FAVORITES_JSON" ] || echo '[]' > "$FAVORITES_JSON"
 [ -f "$QUEUE_JSON" ] || echo '[]' > "$QUEUE_JSON"
 [ -f "$META_JSON" ] || echo '{}' > "$META_JSON"
+[ -f "$PREFS_JSON" ] || echo '{"volume":70,"activeTab":"search","soundEnabled":true}' > "$PREFS_JSON"
+
+get_pref() {
+  local key="$1"
+  local def="$2"
+  jq -r --arg k "$key" '.[$k] // empty' "$PREFS_JSON" 2>/dev/null || echo "$def"
+}
+
+set_pref() {
+  local key="$1"
+  local val="$2"
+  jq --arg k "$key" --argjson v "$val" '.[$k] = $v' "$PREFS_JSON" 2>/dev/null > "$PREFS_JSON.tmp" \
+    && mv "$PREFS_JSON.tmp" "$PREFS_JSON"
+}
 
 play_sound() {
   local snd="$1"
+  local enabled
+  enabled=$(get_pref "soundEnabled" "true")
+  [ "$enabled" = "true" ] || return 0
+
   case "$snd" in
     click)
       canberra-gtk-play -i audio-volume-change 2>/dev/null || true
@@ -38,11 +57,14 @@ play_sound() {
 ensure_daemon() {
   if ! pgrep -f "mpv.*omaopus/mpv.sock" >/dev/null 2>&1 || [ ! -S "$MPV_SOCK" ]; then
     rm -f "$MPV_SOCK"
+    saved_vol=$(get_pref "volume" "70")
     mpv --no-video \
         --idle=yes \
-        --volume=70 \
+        --volume="$saved_vol" \
         --audio-client-name="OmaOpus" \
         --gapless-audio=yes \
+        --demuxer-max-bytes=16MiB \
+        --demuxer-max-back-bytes=4MiB \
         --input-ipc-server="$MPV_SOCK" >/dev/null 2>&1 &
     for _ in {1..25}; do
       if [ -S "$MPV_SOCK" ]; then
@@ -84,6 +106,7 @@ case "$cmd" in
     idle_state=$(send_mpv '{"command":["get_property","idle-active"]}' | jq -r '.data // true' 2>/dev/null || echo 'true')
     vol=$(send_mpv '{"command":["get_property","volume"]}' | jq -r '.data // 70' 2>/dev/null || echo '70')
     meta=$(cat "$META_JSON" 2>/dev/null || echo '{}')
+    prefs=$(cat "$PREFS_JSON" 2>/dev/null || echo '{"volume":70}')
 
     state="stopped"
     if [ "$idle_state" = "false" ]; then
@@ -101,13 +124,15 @@ case "$cmd" in
       --argjson dur "$duration" \
       --argjson vol "$vol" \
       --argjson meta "$meta" \
+      --argjson prefs "$prefs" \
       '{
         ok: true,
         state: $state,
         position: $pos,
         duration: $dur,
         volume: $vol,
-        track: (if ($meta.title) then $meta else null end)
+        track: (if ($meta.title) then $meta else null end),
+        preferences: $prefs
       }' > "$STATUS_JSON.tmp" && mv "$STATUS_JSON.tmp" "$STATUS_JSON"
     cat "$STATUS_JSON"
     ;;
@@ -161,7 +186,21 @@ case "$cmd" in
   volume)
     val="${2:-70}"
     send_mpv "{\"command\":[\"set_property\",\"volume\",$val]}" >/dev/null 2>&1 || true
+    set_pref "volume" "$val"
     "$0" status
+    ;;
+
+  set-pref)
+    key="$2"
+    val="$3"
+    if [ -n "$key" ] && [ -n "$val" ]; then
+      set_pref "$key" "$val"
+    fi
+    cat "$PREFS_JSON"
+    ;;
+
+  get-prefs)
+    cat "$PREFS_JSON" 2>/dev/null || echo '{}'
     ;;
 
   play-url)
@@ -286,7 +325,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "Usage: $0 {ensure|restart-session|status|play|pause|toggle|next|prev|stop|volume <0-100>|play-url <url> [title] [artist] [dur]|queue-url <url> [title] [artist] [dur]|queue-list|queue-clear|favorites-list|favorites-toggle <json>|sound <name>|search <query> [limit]}"
+    echo "Usage: $0 {ensure|restart-session|status|play|pause|toggle|next|prev|stop|volume <0-100>|set-pref <key> <val>|get-prefs|play-url <url> [title] [artist] [dur]|queue-url <url> [title] [artist] [dur]|queue-list|queue-clear|favorites-list|favorites-toggle <json>|sound <name>|search <query> [limit]}"
     exit 1
     ;;
 esac

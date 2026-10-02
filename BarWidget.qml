@@ -18,6 +18,7 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property string backendPath: Qt.resolvedUrl("oma-player").toString().replace(/^file:\/\//, "")
   readonly property string statusPath: Quickshell.env("XDG_STATE_HOME", Quickshell.env("HOME") + "/.local/state") + "/omaopus/status.json"
+  readonly property string prefsPath: Quickshell.env("XDG_STATE_HOME", Quickshell.env("HOME") + "/.local/state") + "/omaopus/preferences.json"
 
   // Player State
   property bool isPlaying: false
@@ -30,8 +31,9 @@ Panel {
   property int totalDurationSec: 0
   property int volume: 70
 
-  // Tabs: "search" | "queue" | "favorites"
+  // User Preferences
   property string activeTab: "search"
+  property bool soundEnabled: true
 
   // Search State
   property var searchResults: []
@@ -46,6 +48,7 @@ Panel {
   property var favorites: []
 
   function playSound(name) {
+    if (!soundEnabled) return
     soundProc.command = [root.backendPath, "sound", name]
     soundProc.running = true
   }
@@ -63,6 +66,11 @@ Panel {
   function refreshFavorites() {
     if (favProc.running) return
     favProc.running = true
+  }
+
+  function refreshPrefs() {
+    if (prefsProc.running) return
+    prefsProc.running = true
   }
 
   function togglePlayPause() {
@@ -115,6 +123,7 @@ Panel {
     execAction("restart-session")
     root.refreshQueue()
     root.refreshFavorites()
+    root.refreshPrefs()
   }
 
   function toggleFavorite(item) {
@@ -136,6 +145,22 @@ Panel {
   function setVolume(pct) {
     volume = Math.max(0, Math.min(100, Math.round(pct)))
     execActionWithArg("volume", String(volume))
+  }
+
+  function setActiveTab(tabId) {
+    if (activeTab === tabId) return
+    activeTab = tabId
+    playSound("click")
+    setPrefProc.command = [root.backendPath, "set-pref", "activeTab", JSON.stringify(tabId)]
+    setPrefProc.running = true
+    if (tabId === "queue") root.refreshQueue()
+    if (tabId === "favorites") root.refreshFavorites()
+  }
+
+  function toggleSound() {
+    soundEnabled = !soundEnabled
+    setPrefProc.command = [root.backendPath, "set-pref", "soundEnabled", JSON.stringify(soundEnabled)]
+    setPrefProc.running = true
   }
 
   function startSearch(query) {
@@ -180,6 +205,31 @@ Panel {
       if (data.volume !== undefined) {
         root.volume = Math.round(data.volume)
       }
+      if (data.preferences) {
+        applyPrefs(data.preferences)
+      }
+    } catch (e) {
+      // Ignored
+    }
+  }
+
+  function applyPrefs(prefs) {
+    if (!prefs) return
+    if (prefs.volume !== undefined && !volSlider.dragging) {
+      root.volume = Math.round(prefs.volume)
+    }
+    if (prefs.activeTab && (prefs.activeTab === "search" || prefs.activeTab === "queue" || prefs.activeTab === "favorites")) {
+      root.activeTab = prefs.activeTab
+    }
+    if (prefs.soundEnabled !== undefined) {
+      root.soundEnabled = prefs.soundEnabled === true
+    }
+  }
+
+  function parsePrefs(raw) {
+    try {
+      if (!raw || typeof raw !== "string") return
+      applyPrefs(JSON.parse(raw))
     } catch (e) {
       // Ignored
     }
@@ -196,10 +246,10 @@ Panel {
   implicitWidth: iconContainer.width
   implicitHeight: bar ? bar.barSize : Style.bar.sizeHorizontal
 
-  // Periodic polling for status
+  // Power-conscious reactive polling: runs only when open or active
   Timer {
-    interval: root.opened ? 1200 : (root.isPlaying ? 2500 : 7000)
-    running: true
+    interval: root.opened ? 1500 : (root.isPlaying ? 4000 : 15000)
+    running: root.opened || root.isPlaying
     repeat: true
     onTriggered: {
       root.refreshStatus()
@@ -210,13 +260,22 @@ Panel {
     }
   }
 
-  // File watcher for status file
+  // File watchers for real-time status and preferences updates
   FileView {
     path: root.statusPath
     watchChanges: true
     atomicWrites: true
     printErrors: false
     onLoaded: root.parseStatus(text())
+    onFileChanged: reload()
+  }
+
+  FileView {
+    path: root.prefsPath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.parsePrefs(text())
     onFileChanged: reload()
   }
 
@@ -227,6 +286,20 @@ Panel {
       waitForEnd: true
       onTextChanged: if (text) root.parseStatus(text)
     }
+  }
+
+  Process {
+    id: prefsProc
+    command: [root.backendPath, "get-prefs"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onTextChanged: if (text) root.parsePrefs(text)
+    }
+  }
+
+  Process {
+    id: setPrefProc
+    command: []
   }
 
   Process {
@@ -327,7 +400,7 @@ Panel {
     function prev(): void { root.prevTrack() }
   }
 
-  // Bar Widget: Icon ONLY (Clean, minimal, hover reveals full song details)
+  // Bar Widget: Icon ONLY
   Item {
     id: iconContainer
     width: Style.bar.statusSlot
@@ -360,7 +433,6 @@ Panel {
       }
     }
 
-    // Glowing accent indicator when playing
     Rectangle {
       visible: root.isPlaying && !root.isBusy
       width: Style.space(5)
@@ -413,6 +485,15 @@ Panel {
     contentWidth: panel.fittedContentWidth(Style.space(390))
     contentHeight: panel.fittedContentHeight(mainColumn.implicitHeight, Style.space(560))
 
+    onOpenChanged: {
+      if (open) {
+        root.refreshStatus()
+        root.refreshPrefs()
+        if (root.activeTab === "queue") root.refreshQueue()
+        if (root.activeTab === "favorites") root.refreshFavorites()
+      }
+    }
+
     Column {
       id: mainColumn
       width: parent.width
@@ -422,7 +503,7 @@ Panel {
       leftPadding: Style.space(14)
       rightPadding: Style.space(14)
 
-      // Header row with Title, Tab switcher, Restart & Close session buttons
+      // Header row
       Row {
         width: parent.width - Style.space(28)
         spacing: Style.space(8)
@@ -437,15 +518,24 @@ Panel {
         }
 
         Item {
-          width: parent.width - x - restartBtn.width - closeBtn.width - Style.space(8)
+          width: parent.width - x - soundToggleBtn.width - restartBtn.width - closeBtn.width - Style.space(12)
           height: 1
         }
 
-        // Restart Instance/Session Button
+        // Sound Toggle Button
+        PanelActionButton {
+          id: soundToggleBtn
+          iconText: root.soundEnabled ? "󰕾" : "󰝟"
+          tooltipText: root.soundEnabled ? "Mute audio cues" : "Enable audio cues"
+          anchors.verticalCenter: parent.verticalCenter
+          onClicked: root.toggleSound()
+        }
+
+        // Restart Instance Button
         PanelActionButton {
           id: restartBtn
           iconText: "󰑐"
-          tooltipText: "Restart Session (clears audio daemon & resets bot limits)"
+          tooltipText: "Restart Session (resets daemon and network stream)"
           anchors.verticalCenter: parent.verticalCenter
           onClicked: root.restartSession()
         }
@@ -460,7 +550,7 @@ Panel {
         }
       }
 
-      // Tab switcher bar: Search | Queue | Favorites
+      // Tab switcher bar (Search | Queue | Favorites)
       Row {
         width: parent.width - Style.space(28)
         spacing: Style.space(6)
@@ -497,18 +587,13 @@ Panel {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                root.activeTab = modelData.id
-                root.playSound("click")
-                if (root.activeTab === "queue") root.refreshQueue()
-                if (root.activeTab === "favorites") root.refreshFavorites()
-              }
+              onClicked: root.setActiveTab(modelData.id)
             }
           }
         }
       }
 
-      // Now Playing Hero Card (Visible across all tabs)
+      // Now Playing Hero Card
       Rectangle {
         width: parent.width - Style.space(28)
         height: root.currentTitle ? Style.space(106) : Style.space(56)
@@ -521,7 +606,6 @@ Panel {
           anchors.margins: Style.space(10)
           spacing: Style.space(4)
 
-          // Track Title with Favorite toggle button
           Row {
             width: parent.width
             spacing: Style.space(6)
@@ -556,7 +640,6 @@ Panel {
             }
           }
 
-          // Artist & Duration
           Text {
             width: parent.width
             text: root.currentArtist ? (root.currentArtist + (root.totalDurationSec > 0 ? "  ·  " + root.formatTime(root.currentPositionSec) + " / " + root.formatTime(root.totalDurationSec) : "")) : "Search tracks or pick from favorites below"
@@ -566,7 +649,6 @@ Panel {
             elide: Text.ElideRight
           }
 
-          // Media Controls Row
           Row {
             visible: root.currentTitle !== ""
             spacing: Style.space(14)
@@ -574,7 +656,7 @@ Panel {
 
             PanelActionButton {
               iconText: "󰒮"
-              tooltipText: "Previous"
+              tooltipText: "Previous / Restart track"
               onClicked: root.prevTrack()
             }
 
@@ -636,7 +718,6 @@ Panel {
         width: parent.width
         spacing: Style.space(8)
 
-        // Search Input Row
         Row {
           width: parent.width - Style.space(28)
           spacing: Style.space(8)
@@ -667,7 +748,6 @@ Panel {
           }
         }
 
-        // Search Results List
         ListView {
           id: resultsList
           width: parent.width - Style.space(28)
@@ -979,7 +1059,7 @@ Panel {
         }
       }
 
-      // Minimal Shortcuts Hint Bar at the very bottom
+      // Minimal Shortcuts Hint Bar
       PanelSeparator {
         width: parent.width - Style.space(28)
       }
@@ -1023,5 +1103,6 @@ Panel {
   Component.onCompleted: {
     root.refreshStatus()
     root.refreshFavorites()
+    root.refreshPrefs()
   }
 }
