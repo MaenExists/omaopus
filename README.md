@@ -1,60 +1,59 @@
-# OmaMusic 󱑽
+# OmaOpus 󱑽
 
 A minimalist, lightweight YouTube & online music player plugin for **Omarchy OS**.
 
-OmaMusic docks seamlessly into your Omarchy status bar with a unique animated icon, compact running track title positioned before the glyph, instant search, queue inspection, favorite tracks, sound effects, and session restart controls.
+OmaOpus docks into your Omarchy status bar with a clean, modern icon, hover details, interactive YouTube search, live queue viewer, persistent favorites, instant session restart, and subtle audio feedback.
 
 ---
 
 ## ✨ Features
 
-- **Unique Bar Widget with Leading Track Title**:
-  - Compact running title shown directly **before** the music glyph on the bar.
-  - Custom stylized glyph (`󱑽` / `󱑼`) with active glowing indicator dot and spinner when loading/busy.
-  - Hover tooltip displaying full now-playing title and artist.
-- **Interactive Control Tabs**:
-  - **󰍉 Search**: Direct YouTube search with instant stream loading.
-  - **󰒮 Queue**: Look up your current playlist queue, active track indicator, and one-click queue clearing.
-  - **󰋑 Favorites**: Save favorite tracks with one click and play them back anytime.
-- **Session & Daemon Management**:
-  - **Restart Session Button (`󰑐`)**: Cleanly restarts the background audio daemon and resets YouTube bot/rate limits without losing your bar icon or widget placement.
-  - Clears default placeholder tracks automatically on launch.
-- **Audio Feedback**: Subtle desktop sound effects for play, pause, queueing, favoriting, and session restarts.
-- **Minimal Keyboard Shortcuts Hint Bar**: Clean, non-intrusive shortcut hints pinned to the bottom of the widget (`↵ Play`, `↑/↓ Navigate`, `Esc Close`).
-- **Ultra Low Resource Footprint**: Built on `cliamp --daemon --low-power` with `yt-dlp` stream extraction (<20MB RAM, ~0% idle CPU).
+- **Minimalist Top Bar Icon**:
+  - Uncluttered status bar: icon-only widget (`󱑽` / `󱑼`) with active accent indicator and animated spinner when loading.
+  - Hover tooltip displays current playing track and artist without eating up bar width.
+- **Interactive Popup Widget**:
+  - **󰍉 Search**: Direct YouTube & music search with instant stream playback.
+  - **󰒮 Queue**: Inspect live playlist queue, active track, and one-click clear (`󰅖`).
+  - **󰋑 Favorites**: One-click hearting (`󰋔` / `󰋑`) to save favorite songs permanently.
+- **Session & Daemon Controls**:
+  - **Restart Session (`󰑐`)**: Restarts background audio engine and resets network/bot limits in one click.
+  - Smooth interactive volume slider.
+- **Sound Effects**: Desktop audio cues for play, pause, queueing, favoriting, and restarts.
+- **Ultra-low Resource Footprint**: Direct lightweight daemon engine (<15MB RAM, ~0% idle CPU).
 
 ---
 
 ## 🛠️ Requirements
 
 - **Omarchy OS** (Hyprland + Quickshell)
-- `cliamp` (pre-installed on Omarchy)
-- `yt-dlp` (for YouTube search & audio stream resolution)
+- `mpv` (pre-installed on Omarchy)
+- `yt-dlp` (pre-installed on Omarchy)
+- `socat`
 - `jq`
-- `canberra-gtk-play` (for feedback sound effects)
+- `canberra-gtk-play` (for audio feedback)
 
 ---
 
 ## 🚀 Installation
 
-### Option 1: Symlink from source (Active development)
+### Option 1: Link into Omarchy Plugins
 
 ```bash
-git clone https://github.com/MaenExists/omamusic.git ~/Builds/OmaMusic
+git clone https://github.com/MaenExists/omaopus.git ~/Builds/OmaOpus
 mkdir -p ~/.config/omarchy/plugins
-ln -sfn ~/Builds/OmaMusic ~/.config/omarchy/plugins/maen.omamusic
+ln -sfn ~/Builds/OmaOpus ~/.config/omarchy/plugins/maen.omaopus
 ```
 
 ### Option 2: Add to Omarchy Bar
 
-Ensure `maen.omamusic` is in your `~/.config/omarchy/shell.json`:
+Edit `~/.config/omarchy/shell.json`:
 
 ```json
 {
   "bar": {
     "layout": {
       "right": [
-        { "id": "maen.omamusic" },
+        { "id": "maen.omaopus" },
         { "id": "omarchy.tray" }
       ]
     }
@@ -62,18 +61,18 @@ Ensure `maen.omamusic` is in your `~/.config/omarchy/shell.json`:
 }
 ```
 
-Omarchy shell hot-reloads on save automatically!
+Omarchy shell hot-reloads automatically on save!
 
 ---
 
-## 🎮 Usage & Controls
+## 🎮 Controls
 
-- **Left-Click Bar Icon**: Toggle the OmaMusic interactive popup.
-- **Right-Click Bar Icon**: Instantly toggle Play / Pause without opening the widget.
-- **Search Tab**: Type any song or artist, press `Enter` to search, and click or press `Enter` on a result to play.
-- **Queue Tab**: View currently loaded playlist tracks and clear the queue with `󰅖`.
-- **Favorites Tab**: Click `󰋔` on any song to bookmark it into Favorites.
-- **Restart Session**: Click `󰑐` in the top right of the popup to refresh the background daemon.
+- **Left-Click Bar Icon**: Toggle the OmaOpus popup.
+- **Right-Click Bar Icon**: Quick play / pause toggle.
+- **Keyboard Navigation**:
+  - `↵ Play`: Start playing selected track.
+  - `↑ / ↓`: Navigate search results.
+  - `Esc`: Close popup.
 
 ---
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# oma-player: resilient audio engine for OmaMusic using direct mpv IPC daemon
+# oma-player: resilient audio engine for OmaOpus using direct mpv IPC daemon
 set -eo pipefail
 
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omamusic"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omaopus"
 mkdir -p "$STATE_DIR"
 STATUS_JSON="$STATE_DIR/status.json"
 QUEUE_JSON="$STATE_DIR/queue.json"
@@ -36,12 +36,12 @@ play_sound() {
 }
 
 ensure_daemon() {
-  if ! pgrep -f "mpv.*omamusic/mpv.sock" >/dev/null 2>&1 || [ ! -S "$MPV_SOCK" ]; then
+  if ! pgrep -f "mpv.*omaopus/mpv.sock" >/dev/null 2>&1 || [ ! -S "$MPV_SOCK" ]; then
     rm -f "$MPV_SOCK"
     mpv --no-video \
         --idle=yes \
         --volume=70 \
-        --audio-client-name="OmaMusic" \
+        --audio-client-name="OmaOpus" \
         --gapless-audio=yes \
         --input-ipc-server="$MPV_SOCK" >/dev/null 2>&1 &
     for _ in {1..25}; do
@@ -68,7 +68,7 @@ case "$cmd" in
     ;;
 
   restart-session)
-    pkill -9 -f "mpv.*omamusic/mpv.sock" 2>/dev/null || true
+    pkill -9 -f "mpv.*omaopus/mpv.sock" 2>/dev/null || true
     rm -f "$MPV_SOCK"
     echo '{}' > "$META_JSON"
     ensure_daemon
@@ -94,7 +94,7 @@ case "$cmd" in
       fi
     fi
 
-    # Output status matching OmaMusic frontend contract
+    # Output status matching OmaOpus frontend contract
     jq -n -c \
       --arg state "$state" \
       --argjson pos "$time_pos" \

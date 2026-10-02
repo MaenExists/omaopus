@@ -7,8 +7,8 @@ import qs.Ui
 
 Panel {
   id: root
-  moduleName: "maen.omamusic"
-  ipcTarget: "maen.omamusic"
+  moduleName: "maen.omaopus"
+  ipcTarget: "maen.omaopus"
   manageIpc: false
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
@@ -17,7 +17,7 @@ Panel {
   readonly property color accent: Color.accent
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property string backendPath: Qt.resolvedUrl("oma-player").toString().replace(/^file:\/\//, "")
-  readonly property string statusPath: Quickshell.env("XDG_STATE_HOME", Quickshell.env("HOME") + "/.local/state") + "/omamusic/status.json"
+  readonly property string statusPath: Quickshell.env("XDG_STATE_HOME", Quickshell.env("HOME") + "/.local/state") + "/omaopus/status.json"
 
   // Player State
   property bool isPlaying: false
@@ -384,7 +384,7 @@ Panel {
         if (root.bar) {
           var tip = root.isPlaying
             ? (root.currentTitle ? (root.currentTitle + (root.currentArtist ? " — " + root.currentArtist : "")) : "Playing music")
-            : (root.isPaused ? "Paused: " + root.currentTitle : "OmaMusic - YouTube Player")
+            : (root.isPaused ? "Paused: " + root.currentTitle : "OmaOpus - YouTube Player")
           root.bar.showTooltip(root, tip)
         }
       }
@@ -428,7 +428,7 @@ Panel {
         spacing: Style.space(8)
 
         Text {
-          text: "󱑽 OmaMusic"
+          text: "󱑽 OmaOpus"
           color: root.foreground
           font.family: root.fontFamily
           font.pixelSize: Style.font.title

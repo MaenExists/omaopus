@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "id": "maen.omamusic",
-  "name": "OmaMusic",
+  "id": "maen.omaopus",
+  "name": "OmaOpus",
   "version": "1.0.0",
   "author": "MaenExists",
   "license": "MIT",
-  "description": "Minimalist YouTube & streaming music player for Omarchy OS with top bar widget, search, and low-resource cliamp daemon.",
-  "homepage": "https://github.com/MaenExists/omamusic",
-  "repository": "https://github.com/MaenExists/omamusic",
+  "description": "Minimalist YouTube & streaming music player for Omarchy OS with top bar widget, search, queue, favorites, and low-resource daemon.",
+  "homepage": "https://github.com/MaenExists/omaopus",
+  "repository": "https://github.com/MaenExists/omaopus",
   "keywords": [
     "music",
     "youtube",
-    "cliamp",
     "player",
     "bar-widget",
-    "audio"
+    "audio",
+    "omarchy"
   ],
   "kinds": [
     "bar-widget"
@@ -24,7 +24,7 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "OmaMusic",
+    "displayName": "OmaOpus",
     "description": "Online YouTube music player with top bar widget and search popup",
     "category": "Media",
     "allowMultiple": false,
