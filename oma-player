@@ -101,9 +101,9 @@ resolve_stream_url() {
     return 0
   fi
 
-  # Resolve fresh audio URL
+  # Resolve fresh audio URL with full TLS certificate verification
   local resolved
-  resolved=$(yt-dlp -g -f "251/140/ba/b" --no-warnings --no-playlist --no-check-certificates --socket-timeout 5 "$url" 2>/dev/null || echo "$url")
+  resolved=$(yt-dlp -g -f "251/140/ba/b" --no-warnings --no-playlist --socket-timeout 5 "$url" 2>/dev/null || echo "$url")
   if [[ "$resolved" =~ ^https?:// ]]; then
     echo "$resolved" > "$cache_file"
   fi
@@ -404,7 +404,6 @@ case "$cmd" in
       --dump-json \
       --no-warnings \
       --no-playlist \
-      --no-check-certificates \
       --socket-timeout 5 \
       --compat-options no-youtube-unavailable-videos 2>/dev/null \
       | jq -s -c 'map({
