@@ -101,6 +101,60 @@ Panel {
     actionProc.running = true
   }
 
+  function setQueue(items) {
+    queueTracks = items || []
+    queueIndex = -1
+    setQueueProc.command = [root.backendPath, "set-queue", JSON.stringify(items || [])]
+    setQueueProc.running = true
+  }
+
+  function playFromFavorites(index) {
+    if (index < 0 || index >= favorites.length) return
+    var item = favorites[index]
+    playTrack(item)
+
+    if (autoPlayQueue) {
+      // Smart Autoplay Queue: follow with subsequent favorites, wrapping around
+      var newQueue = []
+      for (var i = index + 1; i < favorites.length; i++) {
+        newQueue.push(favorites[i])
+      }
+      for (var j = 0; j < index; j++) {
+        newQueue.push(favorites[j])
+      }
+      setQueue(newQueue)
+    }
+  }
+
+  function playFromSearch(index) {
+    if (index < 0 || index >= searchResults.length) return
+    var item = searchResults[index]
+    playTrack(item)
+
+    if (autoPlayQueue) {
+      // Smart Autoplay Queue: follow with subsequent search results
+      var newQueue = []
+      for (var i = index + 1; i < searchResults.length; i++) {
+        newQueue.push(searchResults[i])
+      }
+      if (newQueue.length > 0) {
+        setQueue(newQueue)
+      }
+    }
+  }
+
+  function playFromQueue(index) {
+    if (index < 0 || index >= queueTracks.length) return
+    var item = queueTracks[index]
+    playTrack(item)
+
+    var newQueue = []
+    for (var i = index + 1; i < queueTracks.length; i++) {
+      newQueue.push(queueTracks[i])
+    }
+    setQueue(newQueue)
+  }
+
   function queueTrack(item) {
     if (!item || !item.url) return
     isBusy = true
@@ -382,6 +436,11 @@ Panel {
 
   Process {
     id: prefetchProc
+    command: []
+  }
+
+  Process {
+    id: setQueueProc
     command: []
   }
 
@@ -797,8 +856,7 @@ Panel {
             if (currentIndex < count - 1) currentIndex++
           }
           Keys.onReturnPressed: {
-            var item = model[currentIndex]
-            if (item) root.playTrack(item)
+            root.playFromSearch(currentIndex)
           }
           Keys.onEscapePressed: root.close()
 
@@ -822,7 +880,7 @@ Panel {
               }
               onClicked: {
                 resultsList.currentIndex = index
-                root.playTrack(modelData)
+                root.playFromSearch(index)
               }
             }
 
@@ -960,7 +1018,7 @@ Panel {
                   root.prefetchTrack(modelData.url)
                 }
               }
-              onClicked: root.playTrack(modelData)
+              onClicked: root.playFromQueue(index)
             }
 
             Row {
@@ -1044,7 +1102,7 @@ Panel {
                   root.prefetchTrack(modelData.url)
                 }
               }
-              onClicked: root.playTrack(modelData)
+              onClicked: root.playFromFavorites(index)
             }
 
             Row {

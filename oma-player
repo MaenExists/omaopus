@@ -325,6 +325,21 @@ case "$cmd" in
     echo '{"ok":true}'
     ;;
 
+  set-queue)
+    queue_json="$2"
+    if [ -n "$queue_json" ]; then
+      echo "$queue_json" | jq -c '.' > "$QUEUE_JSON.tmp" 2>/dev/null && mv "$QUEUE_JSON.tmp" "$QUEUE_JSON"
+      # Pre-resolve the first item in the new queue immediately
+      (
+        first_url=$(jq -r '.[0].url // empty' "$QUEUE_JSON" 2>/dev/null || true)
+        if [ -n "$first_url" ]; then
+          resolve_stream_url "$first_url" >/dev/null 2>&1
+        fi
+      ) &
+    fi
+    "$0" queue-list
+    ;;
+
   favorites-list)
     favs=$(cat "$FAVORITES_JSON" 2>/dev/null || echo '[]')
     echo "$favs"
@@ -417,7 +432,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "Usage: $0 {ensure|restart-session|prefetch <url>|status|play|pause|toggle|next|prev|stop|volume <0-100>|set-pref <key> <val>|get-prefs|play-url <url> [title] [artist] [dur]|queue-url <url> [title] [artist] [dur]|queue-list|queue-clear|favorites-list|favorites-toggle <json>|sound <name>|search <query> [limit]}"
+    echo "Usage: $0 {ensure|restart-session|prefetch <url>|status|play|pause|toggle|next|prev|stop|volume <0-100>|set-pref <key> <val>|get-prefs|play-url <url> [title] [artist] [dur]|queue-url <url> [title] [artist] [dur]|queue-list|queue-clear|set-queue <json>|favorites-list|favorites-toggle <json>|sound <name>|search <query> [limit]}"
     exit 1
     ;;
 esac
