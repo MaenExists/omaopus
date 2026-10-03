@@ -5,15 +5,18 @@
   "version": "1.0.0",
   "author": "MaenExists",
   "license": "MIT",
-  "description": "Minimalist YouTube & streaming music player for Omarchy OS with top bar widget, search, queue, favorites, and low-resource daemon.",
+  "description": "Lightning-fast, ultra-lightweight YouTube music player for Omarchy OS. Stream any track in under a second with background pre-caching, seamless queue autoplay, persistent favorites, and a sleek top bar widget that runs under 15MB RAM.",
   "homepage": "https://github.com/MaenExists/omaopus",
   "repository": "https://github.com/MaenExists/omaopus",
   "keywords": [
     "music",
     "youtube",
+    "streaming",
     "player",
-    "bar-widget",
     "audio",
+    "bar-widget",
+    "quickshell",
+    "mpv",
     "omarchy"
   ],
   "kinds": [
@@ -24,8 +27,8 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "OmaOpus",
-    "description": "Online YouTube music player with top bar widget and search popup",
+    "displayName": "OmaOpus — YouTube Music Streamer",
+    "description": "Instant YouTube music streaming, smart queue autoplay, and favorites directly from your top bar with <15MB RAM footprint.",
     "category": "Media",
     "allowMultiple": false,
     "defaultSection": "right"
