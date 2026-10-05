@@ -35,11 +35,16 @@ Stop sacrificing **350MB–500MB of RAM** and CPU cycles to keep a heavy browser
   - Fast flat-playlist extraction delivers search results in seconds.
   - Built-in query disk caching returns repeat and popular searches in **under 50ms**.
 
-- **🌌 Cosmic Nebula Aurora Visualizer**:
-  - GPU-accelerated multi-harmonic audio waveform ribbon with drifting quantum stardust particles.
-  - 3 vibrant cosmic themes: **★ Nebula** (Electric Cyan & Hyper Violet), **☀ Solar** (Sunburst Gold & Amber Supernova), and **✦ Cyber** (Matrix Emerald & Electric Mint).
-  - Click the visualizer canvas anytime to switch themes, or toggle visibility with the header button (`󰺢`).
-  - Zero-cost architecture: animation timer completely halts when the panel is closed or playback is paused (~0.0% idle CPU).
+- **🕳️ Christopher Nolan Gargantua Pixel Black Hole Visualizer**:
+  - Real-time PipeWire audio FFT engine streaming 8 live frequency bands and beat/kick transients.
+  - Authentic *Interstellar* Gargantua relativistic physics in a retro 8-bit pixel art canvas:
+    - Pitch-black central **Event Horizon** void framed by a blazing white **Photon Sphere Ring**.
+    - Gravitational lensing bending rear accretion disk light into upper and lower Einstein rings.
+    - Swirling relativistic accretion matter particles with Keplerian velocity acceleration (`v ~ 1/√r`).
+    - Asymmetric Doppler beaming (approaching side is white-hot/brighter, receding side is redshifted).
+    - Dynamic beat reactions: gravitational wave ripples, coronal plasma flares, and vertical relativistic polar jets erupting on heavy bass/kick drops!
+  - 3 interactive cosmic themes (Click canvas to cycle): **★ Gargantua 8-Bit** (Nolan Gold/Amber), **✦ Quantum Singularity** (Cyan/Violet), and **☀ Solar Supernova** (Crimson/Gold).
+  - Zero-cost architecture: low-latency Python PipeWire engine and QML renderer run strictly when the panel is open and audio is playing (~0.0% idle CPU).
 
 - **🪶 Featherweight Architecture (<15MB RAM, ~0% Idle CPU)**:
   - Powered by a headless `mpv` IPC daemon with strictly bounded demuxer memory caps (16MB max buffer).

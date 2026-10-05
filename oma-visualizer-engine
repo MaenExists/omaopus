@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""
+OmaOpus Real-Time Audio Visualizer Engine
+Captures live audio from PipeWire and computes low-latency FFT frequency bands,
+energy levels, and beat transients for the Nolan Gargantua Black Hole visualizer.
+"""
+
+import sys
+import os
+import signal
+import subprocess
+import time
+import json
+import numpy as np
+
+CHUNK_SIZE = 512
+BYTES_PER_CHUNK = CHUNK_SIZE * 2
+SAMPLE_RATE = 22050
+
+# Precomputed Hanning window
+WINDOW = np.hanning(CHUNK_SIZE).astype(np.float32)
+
+def spawn_recorder():
+    # Attempt 1: Target the specific OmaOpus PipeWire playback stream
+    try:
+        proc = subprocess.Popen(
+            [
+                'pw-record',
+                '--target=OmaOpus',
+                '--raw',
+                f'--rate={SAMPLE_RATE}',
+                '--channels=1',
+                '--format=s16',
+                '-'
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=BYTES_PER_CHUNK * 4
+        )
+        # Check if it dies immediately (e.g. target not found)
+        time.sleep(0.04)
+        if proc.poll() is None:
+            return proc
+    except Exception:
+        pass
+
+    # Attempt 2: Target default audio monitor
+    try:
+        proc = subprocess.Popen(
+            [
+                'pw-record',
+                '--raw',
+                f'--rate={SAMPLE_RATE}',
+                '--channels=1',
+                '--format=s16',
+                '-'
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=BYTES_PER_CHUNK * 4
+        )
+        return proc
+    except Exception:
+        return None
+
+def main():
+    proc = spawn_recorder()
+    if not proc:
+        sys.stderr.write("Failed to start pw-record audio capture.\n")
+        sys.exit(1)
+
+    def cleanup(sig=None, frame=None):
+        try:
+            if proc and proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=0.1)
+        except Exception:
+            pass
+        os._exit(0)
+
+    signal.signal(signal.SIGINT, cleanup)
+    signal.signal(signal.SIGTERM, cleanup)
+    signal.signal(signal.SIGPIPE, cleanup)
+
+    # 8 frequency bands log-spaced across 22050 Hz (Nyquist 11025 Hz, ~43 Hz / bin)
+    # Band 0: Sub-bass (43 - 86 Hz)
+    # Band 1: Bass (86 - 172 Hz)
+    # Band 2: Low-mid (172 - 387 Hz)
+    # Band 3: Mid (387 - 860 Hz)
+    # Band 4: High-mid (860 - 1720 Hz)
+    # Band 5: Presence (1720 - 3440 Hz)
+    # Band 6: Brilliance (3440 - 6880 Hz)
+    # Band 7: Air (6880 - 10000 Hz)
+    bin_ranges = [
+        (1, 3),
+        (3, 6),
+        (6, 12),
+        (12, 24),
+        (24, 48),
+        (48, 96),
+        (96, 160),
+        (160, 240)
+    ]
+
+    smooth_bands = np.zeros(8, dtype=np.float32)
+    bass_history = []
+    silence_frames = 0
+
+    while True:
+        try:
+            raw = proc.stdout.read(BYTES_PER_CHUNK)
+            if not raw or len(raw) < BYTES_PER_CHUNK:
+                # If stream disconnected or silent, decay smoothly
+                smooth_bands *= 0.65
+                silence_frames += 1
+                if silence_frames > 10:
+                    time.sleep(0.03)
+                continue
+
+            silence_frames = 0
+            samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+
+            # Windowed FFT
+            fft = np.abs(np.fft.rfft(samples * WINDOW))
+
+            raw_bands = np.zeros(8, dtype=np.float32)
+            for idx, (low, high) in enumerate(bin_ranges):
+                sub = fft[low:high]
+                if len(sub) > 0:
+                    raw_bands[idx] = float(np.mean(sub))
+
+            # Non-linear boost for perceptual audio scale
+            norm_bands = np.clip(np.log1p(raw_bands * 2.8) / 2.2, 0.0, 1.0)
+
+            # Attack / decay smoothing: snappy attack (instant), smooth decay
+            smooth_bands = np.maximum(norm_bands, smooth_bands * 0.45)
+
+            bass = float(np.mean(smooth_bands[0:2]))
+            mid = float(np.mean(smooth_bands[2:5]))
+            high = float(np.mean(smooth_bands[5:8]))
+            energy = float(np.mean(smooth_bands))
+
+            # Dynamic beat detection: kick transient relative to running average
+            bass_history.append(bass)
+            if len(bass_history) > 24:
+                bass_history.pop(0)
+            avg_bass = np.mean(bass_history) if bass_history else 0.1
+            beat = 1.0 if (bass > (avg_bass * 1.30) and bass > 0.22) else 0.0
+
+            payload = (
+                f'{{"b":['
+                f'{smooth_bands[0]:.2f},{smooth_bands[1]:.2f},{smooth_bands[2]:.2f},{smooth_bands[3]:.2f},'
+                f'{smooth_bands[4]:.2f},{smooth_bands[5]:.2f},{smooth_bands[6]:.2f},{smooth_bands[7]:.2f}],'
+                f'"bass":{bass:.2f},"mid":{mid:.2f},"high":{high:.2f},"energy":{energy:.2f},"beat":{beat:.1f}}}\n'
+            )
+            sys.stdout.write(payload)
+            sys.stdout.flush()
+
+        except (IOError, BrokenPipeError, KeyboardInterrupt):
+            break
+        except Exception:
+            time.sleep(0.02)
+
+    cleanup()
+
+if __name__ == '__main__':
+    main()

@@ -628,11 +628,11 @@ Panel {
           height: 1
         }
 
-        // Cosmic Visualizer Toggle Button
+        // Gargantua Black Hole Visualizer Toggle Button
         PanelActionButton {
           id: visualizerToggleBtn
           iconText: root.visualizerEnabled ? "󰺢" : "󰺠"
-          tooltipText: root.visualizerEnabled ? "Cosmic Visualizer: ON (click to toggle)" : "Cosmic Visualizer: OFF"
+          tooltipText: root.visualizerEnabled ? "Gargantua Black Hole Visualizer: ON (click to toggle)" : "Gargantua Black Hole Visualizer: OFF"
           anchors.verticalCenter: parent.verticalCenter
           onClicked: root.toggleVisualizer()
         }
@@ -799,16 +799,17 @@ Panel {
         }
       }
 
-      // Cosmic Nebula Aurora Visualizer
+      // Christopher Nolan Gargantua Pixel Black Hole Visualizer
       CosmicVisualizer {
         id: cosmicVis
         visible: root.visualizerEnabled && root.currentTitle !== ""
         width: parent.width - Style.space(28)
-        height: Style.space(52)
+        height: Style.space(68)
         isPlaying: root.isPlaying
         isPaused: root.isPaused
         volume: root.volume
         colorTheme: root.cosmicTheme
+        enginePath: root.backendPath.replace(/oma-player$/, "oma-visualizer-engine")
         onThemeToggled: {
           root.cosmicTheme = colorTheme
           setPrefProc.command = [root.backendPath, "set-pref", "cosmicTheme", String(colorTheme)]
