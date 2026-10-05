@@ -16,7 +16,7 @@ META_JSON="$STATE_DIR/current_meta.json"
 [ -f "$FAVORITES_JSON" ] || echo '[]' > "$FAVORITES_JSON"
 [ -f "$QUEUE_JSON" ] || echo '[]' > "$QUEUE_JSON"
 [ -f "$META_JSON" ] || echo '{}' > "$META_JSON"
-[ -f "$PREFS_JSON" ] || echo '{"volume":70,"activeTab":"search","soundEnabled":true,"autoPlayQueue":true}' > "$PREFS_JSON"
+[ -f "$PREFS_JSON" ] || echo '{"volume":70,"activeTab":"search","soundEnabled":true,"autoPlayQueue":true,"visualizerEnabled":true,"cosmicTheme":0}' > "$PREFS_JSON"
 
 get_pref() {
   local key="$1"

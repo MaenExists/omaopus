@@ -35,20 +35,26 @@ Stop sacrificing **350MB–500MB of RAM** and CPU cycles to keep a heavy browser
   - Fast flat-playlist extraction delivers search results in seconds.
   - Built-in query disk caching returns repeat and popular searches in **under 50ms**.
 
+- **🌌 Cosmic Nebula Aurora Visualizer**:
+  - GPU-accelerated multi-harmonic audio waveform ribbon with drifting quantum stardust particles.
+  - 3 vibrant cosmic themes: **★ Nebula** (Electric Cyan & Hyper Violet), **☀ Solar** (Sunburst Gold & Amber Supernova), and **✦ Cyber** (Matrix Emerald & Electric Mint).
+  - Click the visualizer canvas anytime to switch themes, or toggle visibility with the header button (`󰺢`).
+  - Zero-cost architecture: animation timer completely halts when the panel is closed or playback is paused (~0.0% idle CPU).
+
 - **🪶 Featherweight Architecture (<15MB RAM, ~0% Idle CPU)**:
   - Powered by a headless `mpv` IPC daemon with strictly bounded demuxer memory caps (16MB max buffer).
   - Quickshell frontend stays idle and uses zero CPU when closed.
 
 - **󱑽 Icon-Only Bar Widget**:
   - Keeps your status bar clean: no oversized scrolling titles crowding your workspace.
-  - Shows an animated spinner when loading and a subtle accent dot when active. Hovering reveals full track metadata.
+  - Shows an animated spinner when loading and a subtle pulsating cosmic accent dot when playing. Hovering reveals full track metadata.
 
 - **⌨️ Keyboard-First Productivity**:
   - Search by typing and pressing `Enter`.
   - Navigate results with `↑ / ↓` arrows, hit `Enter` to play immediately, and dismiss with `Esc`.
 
 - **💾 Persistent User Preferences**:
-  - Automatically preserves your volume level, active tab, sound effects toggle, and autoplay state across restarts.
+  - Automatically preserves your volume level, active tab, cosmic theme, visualizer state, sound effects toggle, and autoplay state across restarts.
 
 ---
 
@@ -82,6 +88,8 @@ omarchy plugin add https://github.com/MaenExists/omaopus.git --enable
 | :--- | :--- |
 | **Toggle Player Panel** | Left-Click Top Bar Icon |
 | **Quick Play / Pause** | Right-Click Top Bar Icon |
+| **Cycle Cosmic Theme** | Click Cosmic Visualizer (`★ Nebula` / `☀ Solar` / `✦ Cyber`) |
+| **Toggle Visualizer** | Click `󰺢` / `󰺠` in top panel bar |
 | **Play Selected Track** | `Enter` (or click `󰐊`) |
 | **Navigate List** | `↑` / `↓` Arrow Keys |
 | **Add to Queue** | Click `󰐍` on any track |

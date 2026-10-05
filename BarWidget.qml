@@ -35,6 +35,8 @@ Panel {
   property string activeTab: "search"
   property bool soundEnabled: true
   property bool autoPlayQueue: true
+  property bool visualizerEnabled: true
+  property int cosmicTheme: 0
 
   // Search State
   property var searchResults: []
@@ -225,6 +227,13 @@ Panel {
     setPrefProc.running = true
   }
 
+  function toggleVisualizer() {
+    visualizerEnabled = !visualizerEnabled
+    playSound("click")
+    setPrefProc.command = [root.backendPath, "set-pref", "visualizerEnabled", JSON.stringify(visualizerEnabled)]
+    setPrefProc.running = true
+  }
+
   function startSearch(query) {
     var trimmed = (query || "").trim()
     if (!trimmed || trimmed === lastQuery) return
@@ -288,6 +297,12 @@ Panel {
     }
     if (prefs.autoPlayQueue !== undefined) {
       root.autoPlayQueue = prefs.autoPlayQueue === true
+    }
+    if (prefs.visualizerEnabled !== undefined) {
+      root.visualizerEnabled = prefs.visualizerEnabled === true
+    }
+    if (prefs.cosmicTheme !== undefined) {
+      root.cosmicTheme = parseInt(prefs.cosmicTheme) || 0
     }
   }
 
@@ -522,11 +537,18 @@ Panel {
       width: Style.space(5)
       height: Style.space(5)
       radius: width / 2
-      color: root.accent
+      color: root.cosmicTheme === 1 ? "#fbbf24" : (root.cosmicTheme === 2 ? "#34d399" : root.accent)
       anchors.top: parent.top
       anchors.right: parent.right
       anchors.topMargin: Style.space(1)
       anchors.rightMargin: Style.space(1)
+
+      SequentialAnimation on opacity {
+        running: root.isPlaying && !root.isBusy
+        loops: Animation.Infinite
+        NumberAnimation { from: 0.4; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
+        NumberAnimation { from: 1.0; to: 0.4; duration: 900; easing.type: Easing.InOutSine }
+      }
     }
 
     MouseArea {
@@ -602,8 +624,17 @@ Panel {
         }
 
         Item {
-          width: parent.width - x - autoplayToggleBtn.width - soundToggleBtn.width - restartBtn.width - closeBtn.width - Style.space(16)
+          width: parent.width - x - visualizerToggleBtn.width - autoplayToggleBtn.width - soundToggleBtn.width - restartBtn.width - closeBtn.width - Style.space(20)
           height: 1
+        }
+
+        // Cosmic Visualizer Toggle Button
+        PanelActionButton {
+          id: visualizerToggleBtn
+          iconText: root.visualizerEnabled ? "󰺢" : "󰺠"
+          tooltipText: root.visualizerEnabled ? "Cosmic Visualizer: ON (click to toggle)" : "Cosmic Visualizer: OFF"
+          anchors.verticalCenter: parent.verticalCenter
+          onClicked: root.toggleVisualizer()
         }
 
         // Autoplay Queue Toggle Button
@@ -765,6 +796,23 @@ Panel {
               onClicked: root.nextTrack()
             }
           }
+        }
+      }
+
+      // Cosmic Nebula Aurora Visualizer
+      CosmicVisualizer {
+        id: cosmicVis
+        visible: root.visualizerEnabled && root.currentTitle !== ""
+        width: parent.width - Style.space(28)
+        height: Style.space(52)
+        isPlaying: root.isPlaying
+        isPaused: root.isPaused
+        volume: root.volume
+        colorTheme: root.cosmicTheme
+        onThemeToggled: {
+          root.cosmicTheme = colorTheme
+          setPrefProc.command = [root.backendPath, "set-pref", "cosmicTheme", String(colorTheme)]
+          setPrefProc.running = true
         }
       }
 
