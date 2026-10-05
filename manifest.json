@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "maen.omaopus",
   "name": "OmaOpus",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "MaenExists",
   "license": "MIT",
-  "description": "Lightning-fast, ultra-lightweight YouTube music player for Omarchy OS. Stream any track in under a second with background pre-caching, seamless queue autoplay, persistent favorites, and a sleek top bar widget that runs under 15MB RAM.",
+  "description": "Lightning-fast, ultra-lightweight YouTube music player for Omarchy OS. Stream any track in under a second with background pre-caching, cosmic aurora visualizer, seamless queue autoplay, persistent favorites, and a sleek top bar widget that runs under 15MB RAM.",
   "homepage": "https://github.com/MaenExists/omaopus",
   "repository": "https://github.com/MaenExists/omaopus",
   "keywords": [
