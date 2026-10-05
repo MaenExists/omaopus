@@ -802,11 +802,12 @@ Panel {
       // 32-Band Spectrum Equalizer Visualizer
       CosmicVisualizer {
         id: cosmicVis
-        visible: root.visualizerEnabled && root.currentTitle !== ""
+        visible: root.visualizerEnabled
         width: parent.width - Style.space(28)
         height: Style.space(76)
         isPlaying: root.isPlaying
         isPaused: root.isPaused
+        panelOpened: root.opened
         volume: root.volume
         colorTheme: root.cosmicTheme
         enginePath: root.backendPath.replace(/oma-player$/, "oma-visualizer-engine")

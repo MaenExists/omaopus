@@ -6,40 +6,38 @@ Item {
 
   property bool isPlaying: false
   property bool isPaused: false
+  property bool panelOpened: true
   property real volume: 70
   property int colorTheme: 0 // 0: Cyber Neon, 1: Solar Fire, 2: Matrix Emerald
   property string enginePath: Qt.resolvedUrl("oma-visualizer-engine").toString().replace(/^file:\/\//, "")
-  property bool active: isPlaying && !isPaused
 
   signal themeToggled()
 
   implicitWidth: 360
   implicitHeight: 76
 
-  // 32 Frequency Bands
-  property var currentBands: []
+  // 32 Frequency Bars Data (0.0 to 1.0)
+  property var barValues: [
+    0.1, 0.2, 0.35, 0.5, 0.65, 0.8, 0.75, 0.7,
+    0.6, 0.55, 0.5, 0.45, 0.4, 0.38, 0.35, 0.32,
+    0.3, 0.28, 0.26, 0.24, 0.22, 0.2, 0.18, 0.16,
+    0.15, 0.14, 0.13, 0.12, 0.11, 0.1, 0.08, 0.06
+  ]
+  property var peakValues: [
+    0.15, 0.25, 0.4, 0.55, 0.7, 0.85, 0.8, 0.75,
+    0.65, 0.6, 0.55, 0.5, 0.45, 0.42, 0.38, 0.35,
+    0.33, 0.3, 0.28, 0.26, 0.24, 0.22, 0.2, 0.18,
+    0.17, 0.16, 0.15, 0.14, 0.13, 0.12, 0.1, 0.08
+  ]
+
   property var targetBands: []
-  property var peakHold: []
   property real currentBass: 0.0
   property real targetBass: 0.0
   property real beatPulse: 0.0
-  property real beatPump: 0.0
-
-  Component.onCompleted: {
-    var b = []
-    var p = []
-    for (var i = 0; i < 32; i++) {
-      b.push(0.05)
-      p.push(0.05)
-    }
-    currentBands = b
-    targetBands = b
-    peakHold = p
-  }
+  property real animPhase: 0.0
 
   function triggerBeat() {
     beatPulse = 1.0
-    beatPump = 1.0
   }
 
   function feedAudioData(line) {
@@ -47,7 +45,6 @@ Item {
     try {
       var d = JSON.parse(line)
       if (d.b && d.b.length >= 16) {
-        // Expand/map to 32 bands if needed
         var incoming = d.b
         var full = []
         if (incoming.length >= 32) {
@@ -65,11 +62,11 @@ Item {
     } catch (e) {}
   }
 
-  // Real-time audio engine process
+  // Real-time audio engine process (runs when panel is visible)
   Process {
     id: engineProc
     command: [root.enginePath]
-    running: root.visible && root.isPlaying
+    running: root.visible && root.panelOpened
     stdout: SplitParser {
       onRead: function(line) {
         root.feedAudioData(line)
@@ -86,198 +83,28 @@ Item {
     border.width: 1
     clip: true
 
-    Canvas {
-      id: specCanvas
-      anchors.fill: parent
+    // Top HUD Bar
+    Row {
+      anchors.left: parent.left
+      anchors.top: parent.top
+      anchors.margins: 6
+      spacing: 6
+      opacity: 0.75
 
-      property real timeStep: 0.0
-
-      onPaint: {
-        var ctx = getContext("2d")
-        var w = width
-        var h = height
-        if (w <= 0 || h <= 0) return
-
-        ctx.clearRect(0, 0, w, h)
-
-        // Dark background
-        ctx.fillStyle = "#080a12"
-        ctx.fillRect(0, 0, w, h)
-
-        var t = timeStep
-        var numBars = 32
-        var padX = 14
-        var availW = w - padX * 2
-        var barSpacing = 2.0
-        var barW = Math.max(3.0, (availW - (numBars - 1) * barSpacing) / numBars)
-
-        var baselineY = h - 16
-        var maxBarH = 44.0 + root.beatPump * 6.0
-
-        // Palette Gradients
-        var theme = root.colorTheme
-        var cPeak, cBase
-        // Colors from bottom to top
-        var gStop0, gStop1, gStop2, gStop3
-        if (theme === 1) {
-          // Solar Fire (Gold -> Sunset Amber -> Crimson -> White)
-          gStop0 = "#991b1b" // Deep Crimson
-          gStop1 = "#ea580c" // Orange
-          gStop2 = "#f59e0b" // Amber
-          gStop3 = "#fef08a" // Blazing Gold
-          cPeak = "#ffffff"
-          cBase = "#450a0a"
-        } else if (theme === 2) {
-          // Matrix Emerald (Deep Green -> Mint -> Cyan -> White)
-          gStop0 = "#064e3b" // Deep Emerald
-          gStop1 = "#059669" // Green
-          gStop2 = "#10b981" // Mint
-          gStop3 = "#6ee7b7" // Light Mint
-          cPeak = "#ffffff"
-          cBase = "#022c22"
-        } else {
-          // Cyber Neon (Deep Blue -> Cyan -> Purple -> Hot Pink)
-          gStop0 = "#1e1b4b" // Deep Indigo
-          gStop1 = "#06b6d4" // Electric Cyan
-          gStop2 = "#818cf8" // Violet
-          gStop3 = "#f43f5e" // Hot Pink
-          cPeak = "#ffffff"
-          cBase = "#0f172a"
-        }
-
-        // Draw Baseline Grid Line
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(padX, baselineY + 1)
-        ctx.lineTo(w - padX, baselineY + 1)
-        ctx.stroke()
-
-        // Draw 32 Spectrum Equalizer Bars
-        for (var i = 0; i < numBars; i++) {
-          var x = padX + i * (barW + barSpacing)
-          var val = root.currentBands[i] || 0.0
-          var peakVal = root.peakHold[i] || 0.0
-
-          // Calculate bar height
-          var bh = Math.max(3.0, val * maxBarH)
-          var barTopY = baselineY - bh
-
-          // Create vertical gradient for this bar
-          var grad = ctx.createLinearGradient(0, baselineY, 0, baselineY - maxBarH)
-          grad.addColorStop(0.0, gStop0)
-          grad.addColorStop(0.35, gStop1)
-          grad.addColorStop(0.75, gStop2)
-          grad.addColorStop(1.0, gStop3)
-
-          // 1. MAIN EQUALIZER BAR (Segmented LED style)
-          var segmentH = 3.0
-          var segmentGap = 1.0
-          var totalSeg = Math.floor(bh / (segmentH + segmentGap))
-
-          ctx.fillStyle = grad
-          for (var s = 0; s < totalSeg; s++) {
-            var sy = baselineY - (s + 1) * (segmentH + segmentGap)
-            ctx.fillRect(Math.floor(x), Math.floor(sy), Math.floor(barW), segmentH)
-          }
-
-          // 2. FLOATING PEAK-HOLD CAP (Classic Hi-Fi Visualizer)
-          var peakY = baselineY - (peakVal * maxBarH) - 3.0
-          ctx.fillStyle = cPeak
-          ctx.fillRect(Math.floor(x), Math.floor(peakY), Math.floor(barW), 2.0)
-
-          // 3. GLOSSY BOTTOM REFLECTION (Fades down into baseline)
-          var refH = Math.min(10.0, bh * 0.28)
-          var refGrad = ctx.createLinearGradient(0, baselineY, 0, baselineY + refH)
-          refGrad.addColorStop(0.0, "rgba(255, 255, 255, 0.18)")
-          refGrad.addColorStop(1.0, "rgba(0, 0, 0, 0.0)")
-          ctx.fillStyle = refGrad
-          ctx.fillRect(Math.floor(x), baselineY + 2, Math.floor(barW), refH)
-        }
+      Text {
+        text: "SPECTRUM ANALYZER"
+        color: "#94a3b8"
+        font.pixelSize: 8
+        font.bold: true
+        font.family: "monospace"
       }
     }
 
-    // High-performance 40 FPS Visualizer Animation Loop
-    Timer {
-      id: animTimer
-      interval: 25 // 40 FPS ultra-smooth loop
-      running: root.visible && root.active
-      repeat: true
-      onTriggered: {
-        stepVisualizer()
-      }
-    }
-
-    function stepVisualizer() {
-      var tb = root.targetBands
-      var cb = root.currentBands
-      var ph = root.peakHold
-      var nextB = []
-      var nextPh = []
-      var t = specCanvas.timeStep
-
-      // Live Audio vs Harmonic Synth Wave Blend
-      // Guarantees that the bars bounce and dance with tempo even during quiet sections!
-      var isEngineActive = tb && tb.length > 0 && root.targetBass > 0.02
-      var volMult = root.volume / 100.0
-
-      for (var i = 0; i < 32; i++) {
-        var liveVal = (tb && tb[i] !== undefined) ? tb[i] : 0.0
-        var curVal = (cb && cb[i] !== undefined) ? cb[i] : 0.0
-        var oldPeak = (ph && ph[i] !== undefined) ? ph[i] : 0.0
-
-        // Harmonic procedural pulse for lively rhythm
-        var normX = i / 32.0
-        var wave1 = Math.sin(normX * 4.2 - t * 3.5) * 0.35 + 0.35
-        var wave2 = Math.cos(normX * 8.5 + t * 4.8) * 0.25 + 0.25
-        var bassBoost = (1.0 - normX) * (root.currentBass * 0.45 + root.beatPulse * 0.35)
-        var synthVal = Math.min(1.0, (wave1 + wave2 + bassBoost) * volMult)
-
-        // Target value is either live audio or blended harmonic synth
-        var targetVal = isEngineActive ? (liveVal * 0.85 + synthVal * 0.15) : (synthVal * 0.75)
-
-        // Fast attack (snappy jump), smooth decay
-        var factor = targetVal > curVal ? 0.70 : 0.22
-        var updated = curVal + (targetVal - curVal) * factor
-        nextB.push(updated)
-
-        // Peak-hold gravity drop
-        if (updated > oldPeak) {
-          nextPh.push(updated)
-        } else {
-          nextPh.push(Math.max(0.0, oldPeak - 0.032))
-        }
-      }
-
-      root.currentBands = nextB
-      root.peakHold = nextPh
-
-      // Interpolate bass and decay beat pump
-      root.currentBass += (root.targetBass - root.currentBass) * 0.4
-      root.beatPulse *= 0.85
-      root.beatPump *= 0.82
-
-      specCanvas.timeStep += 0.08
-      specCanvas.requestPaint()
-    }
-
-    // Click to cycle color palettes
-    MouseArea {
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: {
-        root.colorTheme = (root.colorTheme + 1) % 3
-        root.themeToggled()
-      }
-    }
-
-    // Top HUD Info Bar
     Row {
       anchors.right: parent.right
       anchors.top: parent.top
       anchors.margins: 6
-      spacing: 6
+      spacing: 5
       opacity: 0.85
 
       Rectangle {
@@ -297,21 +124,155 @@ Item {
       }
     }
 
-    // Left HUD Indicator
-    Row {
+    // Baseline grid separator
+    Rectangle {
       anchors.left: parent.left
-      anchors.top: parent.top
-      anchors.margins: 6
-      spacing: 4
-      opacity: 0.7
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: 14
+      anchors.leftMargin: 12
+      anchors.rightMargin: 12
+      height: 1
+      color: "rgba(255, 255, 255, 0.08)"
+    }
 
-      Text {
-        text: "SPECTRUM ANALYZER"
-        color: "#94a3b8"
-        font.pixelSize: 8
-        font.bold: true
-        font.family: "monospace"
+    // 32 Hardware-Accelerated SceneGraph Equalizer Bars
+    Row {
+      id: barsRow
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: 15
+      spacing: 2
+
+      Repeater {
+        model: 32
+
+        Item {
+          id: barItem
+          width: Math.max(4, Math.floor((bgCard.width - 28 - 31 * 2) / 32))
+          height: 48
+
+          // 1. Peak Hold Floating Cap
+          Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Math.min(parent.height - 2, Math.max(3, (root.peakValues[index] || 0.0) * (parent.height - 4)) + 2)
+            width: parent.width
+            height: 2
+            radius: 1
+            color: "#ffffff"
+          }
+
+          // 2. Main Equalizer Bar
+          Rectangle {
+            anchors.bottom: parent.bottom
+            width: parent.width
+            height: Math.min(parent.height, Math.max(2, (root.barValues[index] || 0.0) * parent.height))
+            radius: 1.5
+
+            gradient: Gradient {
+              GradientStop {
+                position: 0.0
+                color: root.colorTheme === 1 ? "#fef08a" : (root.colorTheme === 2 ? "#6ee7b7" : "#f43f5e")
+              }
+              GradientStop {
+                position: 0.35
+                color: root.colorTheme === 1 ? "#f59e0b" : (root.colorTheme === 2 ? "#10b981" : "#818cf8")
+              }
+              GradientStop {
+                position: 0.75
+                color: root.colorTheme === 1 ? "#ea580c" : (root.colorTheme === 2 ? "#059669" : "#06b6d4")
+              }
+              GradientStop {
+                position: 1.0
+                color: root.colorTheme === 1 ? "#991b1b" : (root.colorTheme === 2 ? "#064e3b" : "#1e1b4b")
+              }
+            }
+          }
+
+          // 3. Glossy Bottom Mirror Reflection
+          Rectangle {
+            anchors.top: parent.bottom
+            anchors.topMargin: 2
+            width: parent.width
+            height: Math.min(8, (root.barValues[index] || 0.0) * 8)
+            radius: 1
+            opacity: 0.28
+            color: root.colorTheme === 1 ? "#f59e0b" : (root.colorTheme === 2 ? "#10b981" : "#06b6d4")
+          }
+        }
       }
     }
+
+    // Click to cycle color themes
+    MouseArea {
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: {
+        root.colorTheme = (root.colorTheme + 1) % 3
+        root.themeToggled()
+      }
+    }
+  }
+
+  // High-performance 40 FPS Visualizer Engine & Physics Step
+  Timer {
+    id: animTimer
+    interval: 25 // 40 FPS silky smooth SceneGraph updates
+    running: root.visible && root.panelOpened
+    repeat: true
+    onTriggered: {
+      updateVisualizerFrame()
+    }
+  }
+
+  function updateVisualizerFrame() {
+    var tb = root.targetBands
+    var cb = root.barValues
+    var ph = root.peakValues
+    var nextBars = []
+    var nextPeaks = []
+
+    root.animPhase += 0.09
+    var phase = root.animPhase
+
+    // Check if live engine data is streaming
+    var isLiveAudio = tb && tb.length > 0 && root.targetBass > 0.01
+
+    for (var i = 0; i < 32; i++) {
+      var liveVal = (tb && tb[i] !== undefined) ? tb[i] : 0.0
+      var curVal = (cb && cb[i] !== undefined) ? cb[i] : 0.0
+      var curPeak = (ph && ph[i] !== undefined) ? ph[i] : 0.0
+
+      // Dynamic rhythmic harmonic synthesizer waves
+      // Ensures the bars are ALWAYS visibly jumping and grooving with lively motion!
+      var normX = i / 31.0
+      var wave1 = Math.sin(normX * 5.2 - phase * 3.2) * 0.32 + 0.35
+      var wave2 = Math.cos(normX * 9.5 + phase * 4.6) * 0.22 + 0.25
+      var bassSurge = Math.max(0.0, (1.0 - normX * 1.3)) * (root.currentBass * 0.5 + root.beatPulse * 0.45)
+      var rhythmVal = Math.min(1.0, Math.max(0.05, wave1 + wave2 + bassSurge))
+
+      // When live audio is playing, use live audio data blended with rhythm
+      var targetVal = isLiveAudio ? (liveVal * 0.88 + rhythmVal * 0.12) : (rhythmVal * 0.8)
+
+      // Fast attack (snappy jump), smooth decay
+      var attackFactor = targetVal > curVal ? 0.72 : 0.24
+      var updatedVal = curVal + (targetVal - curVal) * attackFactor
+      nextBars.push(updatedVal)
+
+      // Peak-hold with gravity drop
+      if (updatedVal > curPeak) {
+        nextPeaks.push(updatedVal)
+      } else {
+        nextPeaks.push(Math.max(0.05, curPeak - 0.032))
+      }
+    }
+
+    root.barValues = nextBars
+    root.peakValues = nextPeaks
+
+    // Smooth bass and decay beat pulse
+    root.currentBass += (root.targetBass - root.currentBass) * 0.4
+    root.beatPulse *= 0.82
   }
 }
