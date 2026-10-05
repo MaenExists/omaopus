@@ -129,19 +129,29 @@ def main():
             silence_frames = 0
             samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
 
-            # Windowed FFT
-            fft = np.abs(np.fft.rfft(samples * WINDOW))
+            # Check RMS energy to suppress idle noise / silence
+            rms = float(np.sqrt(np.mean(samples ** 2)))
+            if rms < 0.006:
+                norm = np.zeros(NUM_BANDS, dtype=np.float32)
+                bass = 0.0
+                mid = 0.0
+                high = 0.0
+                energy = 0.0
+                beat = 0.0
+            else:
+                # Windowed FFT
+                fft = np.abs(np.fft.rfft(samples * WINDOW))
 
-            raw_bands = np.zeros(NUM_BANDS, dtype=np.float32)
-            for idx, (low, high) in enumerate(BIN_RANGES):
-                sub = fft[low:high]
-                if len(sub) > 0:
-                    raw_bands[idx] = float(np.mean(sub))
+                raw_bands = np.zeros(NUM_BANDS, dtype=np.float32)
+                for idx, (low, high) in enumerate(BIN_RANGES):
+                    sub = fft[low:high]
+                    if len(sub) > 0:
+                        raw_bands[idx] = float(np.mean(sub))
 
-            # Dynamic Auto-Gain Control (AGC) per band
-            peaks = np.maximum(raw_bands, peaks * 0.94)
-            peaks = np.maximum(peaks, 0.25)
-            norm = np.clip(raw_bands / peaks, 0.0, 1.0)
+                # Dynamic Auto-Gain Control (AGC) per band with floor to prevent noise amplification
+                peaks = np.maximum(raw_bands, peaks * 0.94)
+                peaks = np.maximum(peaks, 0.75)
+                norm = np.clip(raw_bands / peaks, 0.0, 1.0)
 
             # Frequency band groups
             bass = float(np.mean(norm[0:6]))

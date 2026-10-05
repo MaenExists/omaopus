@@ -17,8 +17,8 @@ Panel {
   readonly property color accent: Color.accent
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property string backendPath: Qt.resolvedUrl("oma-player").toString().replace(/^file:\/\//, "")
-  readonly property string statusPath: Quickshell.env("XDG_STATE_HOME", Quickshell.env("HOME") + "/.local/state") + "/omaopus/status.json"
-  readonly property string prefsPath: Quickshell.env("XDG_STATE_HOME", Quickshell.env("HOME") + "/.local/state") + "/omaopus/preferences.json"
+  readonly property string statusPath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/omaopus/status.json"
+  readonly property string prefsPath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/omaopus/preferences.json"
 
   // Player State
   property bool isPlaying: false
@@ -821,7 +821,7 @@ Panel {
         id: cosmicVis
         visible: root.visualizerEnabled
         width: parent.width - Style.space(28)
-        height: Style.space(76)
+        height: Style.space(82)
         isPlaying: root.isPlaying
         isPaused: root.isPaused
         panelOpened: root.opened
