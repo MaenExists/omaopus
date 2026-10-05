@@ -133,7 +133,7 @@ Item {
       anchors.leftMargin: 12
       anchors.rightMargin: 12
       height: 1
-      color: "rgba(255, 255, 255, 0.08)"
+      color: Qt.rgba(1.0, 1.0, 1.0, 0.08)
     }
 
     // 32 Hardware-Accelerated SceneGraph Equalizer Bars
