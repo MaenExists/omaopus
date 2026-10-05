@@ -804,7 +804,7 @@ Panel {
         id: cosmicVis
         visible: root.visualizerEnabled && root.currentTitle !== ""
         width: parent.width - Style.space(28)
-        height: Style.space(68)
+        height: Style.space(74)
         isPlaying: root.isPlaying
         isPaused: root.isPaused
         volume: root.volume
