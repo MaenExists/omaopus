@@ -628,11 +628,11 @@ Panel {
           height: 1
         }
 
-        // Gargantua Black Hole Visualizer Toggle Button
+        // Spectrum Equalizer Visualizer Toggle Button
         PanelActionButton {
           id: visualizerToggleBtn
           iconText: root.visualizerEnabled ? "󰺢" : "󰺠"
-          tooltipText: root.visualizerEnabled ? "Gargantua Black Hole Visualizer: ON (click to toggle)" : "Gargantua Black Hole Visualizer: OFF"
+          tooltipText: root.visualizerEnabled ? "Spectrum Visualizer: ON (click to toggle)" : "Spectrum Visualizer: OFF"
           anchors.verticalCenter: parent.verticalCenter
           onClicked: root.toggleVisualizer()
         }
@@ -799,12 +799,12 @@ Panel {
         }
       }
 
-      // Christopher Nolan Gargantua Pixel Black Hole Visualizer
+      // 32-Band Spectrum Equalizer Visualizer
       CosmicVisualizer {
         id: cosmicVis
         visible: root.visualizerEnabled && root.currentTitle !== ""
         width: parent.width - Style.space(28)
-        height: Style.space(74)
+        height: Style.space(76)
         isPlaying: root.isPlaying
         isPaused: root.isPaused
         volume: root.volume

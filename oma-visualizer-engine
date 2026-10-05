@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-OmaOpus Real-Time Audio Visualizer Engine
-Captures live audio from PulseAudio/PipeWire monitor and computes 16-band FFT,
-dynamic auto-gain control (AGC), and sharp beat/kick transient detection for the
-Christopher Nolan Gargantua Black Hole visualizer.
+OmaOpus Real-Time 32-Band Audio Visualizer Engine
+Captures low-latency system/player audio via PulseAudio/PipeWire,
+computes 32-band log-spaced FFT with Dynamic Auto-Gain Control (AGC),
+and detects beat transients for the spectrum analyzer visualizer.
 """
 
 import sys
@@ -17,16 +17,21 @@ CHUNK_SIZE = 512
 BYTES_PER_CHUNK = CHUNK_SIZE * 2
 SAMPLE_RATE = 22050
 
-# Hanning window for smooth spectral leakage control
+# Smooth Hanning window
 WINDOW = np.hanning(CHUNK_SIZE).astype(np.float32)
 
-# 16 log-spaced frequency bands across 22050 Hz (Nyquist 11025 Hz, ~43 Hz / bin)
-BIN_EDGES = [1, 2, 3, 5, 8, 12, 18, 26, 38, 54, 76, 105, 140, 180, 220, 256]
+# 32 log-spaced frequency bands across 22050 Hz (Nyquist 11025 Hz, ~43 Hz / bin)
+BIN_EDGES = [
+    1, 2, 3, 4, 5, 6, 7, 8,
+    10, 12, 14, 17, 21, 26, 32, 39,
+    47, 56, 67, 80, 95, 112, 131, 152,
+    175, 190, 205, 220, 232, 242, 250, 255, 257
+]
 BIN_RANGES = [(BIN_EDGES[i], BIN_EDGES[i+1]) for i in range(len(BIN_EDGES)-1)]
 NUM_BANDS = len(BIN_RANGES)
 
 def spawn_recorder():
-    # Attempt 1: parecord directly from default monitor with 20ms low-latency
+    # Attempt 1: parecord from default monitor with 20ms low latency
     try:
         proc = subprocess.Popen(
             [
@@ -118,7 +123,7 @@ def main():
             if not raw or len(raw) < BYTES_PER_CHUNK:
                 silence_frames += 1
                 if silence_frames > 8:
-                    time.sleep(0.03)
+                    time.sleep(0.025)
                 continue
 
             silence_frames = 0
@@ -133,29 +138,27 @@ def main():
                 if len(sub) > 0:
                     raw_bands[idx] = float(np.mean(sub))
 
-            # Dynamic Auto-Gain Control (AGC): rolling peak decay ensures full 0..1 scale
+            # Dynamic Auto-Gain Control (AGC) per band
             peaks = np.maximum(raw_bands, peaks * 0.94)
             peaks = np.maximum(peaks, 0.25)
             norm = np.clip(raw_bands / peaks, 0.0, 1.0)
 
             # Frequency band groups
-            bass = float(np.mean(norm[0:3]))
-            mid = float(np.mean(norm[3:9]))
-            high = float(np.mean(norm[9:]))
+            bass = float(np.mean(norm[0:6]))
+            mid = float(np.mean(norm[6:18]))
+            high = float(np.mean(norm[18:]))
             energy = float(np.mean(norm))
 
-            # Dual-stage beat detection:
-            # 1. Onset transient (sharp rising delta in bass)
+            # Onset transient beat detection
             delta = bass - prev_bass
             prev_bass = bass
 
-            # 2. Running energy baseline
             bass_history.append(bass)
             if len(bass_history) > 24:
                 bass_history.pop(0)
             avg_bass = float(np.mean(bass_history)) if bass_history else 0.1
 
-            is_transient = (delta > 0.15 and bass > 0.45)
+            is_transient = (delta > 0.14 and bass > 0.45)
             is_surge = (bass > avg_bass * 1.35 and bass > 0.40)
             beat = 1.0 if (is_transient or is_surge) else 0.0
 

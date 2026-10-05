@@ -35,16 +35,16 @@ Stop sacrificing **350MB–500MB of RAM** and CPU cycles to keep a heavy browser
   - Fast flat-playlist extraction delivers search results in seconds.
   - Built-in query disk caching returns repeat and popular searches in **under 50ms**.
 
-- **🕳️ Christopher Nolan Gargantua Pixel Black Hole Visualizer**:
-  - Real-time PipeWire audio FFT engine streaming 8 live frequency bands and beat/kick transients.
-  - Authentic *Interstellar* Gargantua relativistic physics in a retro 8-bit pixel art canvas:
-    - Pitch-black central **Event Horizon** void framed by a blazing white **Photon Sphere Ring**.
-    - Gravitational lensing bending rear accretion disk light into upper and lower Einstein rings.
-    - Swirling relativistic accretion matter particles with Keplerian velocity acceleration (`v ~ 1/√r`).
-    - Asymmetric Doppler beaming (approaching side is white-hot/brighter, receding side is redshifted).
-    - Dynamic beat reactions: gravitational wave ripples, coronal plasma flares, and vertical relativistic polar jets erupting on heavy bass/kick drops!
-  - 3 interactive cosmic themes (Click canvas to cycle): **★ Gargantua 8-Bit** (Nolan Gold/Amber), **✦ Quantum Singularity** (Cyan/Violet), and **☀ Solar Supernova** (Crimson/Gold).
-  - Zero-cost architecture: low-latency Python PipeWire engine and QML renderer run strictly when the panel is open and audio is playing (~0.0% idle CPU).
+- **📊 32-Band Spectrum Equalizer Visualizer**:
+  - Real-time 32-band graphic audio equalizer spanning 40 Hz Sub-Bass to 11 kHz Treble.
+  - Classic Hi-Fi stereo aesthetic with segmented LED pillars, floating peak-hold gravity caps, and bottom glossy mirror reflections.
+  - Low-latency PulseAudio/PipeWire FFT capture with Dynamic Auto-Gain Control (AGC) and onset drum kick detection.
+  - Active beat pump dynamics: the baseline visibly surges on heavy bass drops and kicks.
+  - 3 vibrant color palettes (Click canvas to cycle):
+    - **★ Cyber Neon**: Deep Indigo -> Electric Cyan -> Violet -> Hot Pink -> White Peak.
+    - **☀ Solar Fire**: Deep Crimson -> Sunset Orange -> Amber -> Blazing Gold -> White Peak.
+    - **✦ Matrix Emerald**: Deep Emerald -> Forest Green -> Mint -> Ice Mint -> White Peak.
+  - Zero-cost architecture: audio analysis engine and canvas timer halt immediately when panel closes or audio is paused (~0.0% idle CPU).
 
 - **🪶 Featherweight Architecture (<15MB RAM, ~0% Idle CPU)**:
   - Powered by a headless `mpv` IPC daemon with strictly bounded demuxer memory caps (16MB max buffer).
