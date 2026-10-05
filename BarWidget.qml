@@ -517,8 +517,9 @@ Panel {
 
     Text {
       id: iconLabel
+      visible: !root.isPlaying || root.isBusy
       anchors.centerIn: parent
-      text: root.isBusy ? "󰑮" : (root.isPlaying ? "󱑽" : "󱑼")
+      text: root.isBusy ? "󰑮" : "󱑼"
       color: root.isPlaying ? root.accent : (root.bar ? root.bar.barForeground : Color.foreground)
       font.family: root.fontFamily
       font.pixelSize: Style.font.icon
@@ -532,22 +533,38 @@ Panel {
       }
     }
 
-    Rectangle {
+    // Live Animated Mini Equalizer in Top Bar Slot
+    Row {
       visible: root.isPlaying && !root.isBusy
-      width: Style.space(5)
-      height: Style.space(5)
-      radius: width / 2
-      color: root.cosmicTheme === 1 ? "#fbbf24" : (root.cosmicTheme === 2 ? "#34d399" : root.accent)
-      anchors.top: parent.top
-      anchors.right: parent.right
-      anchors.topMargin: Style.space(1)
-      anchors.rightMargin: Style.space(1)
+      anchors.centerIn: parent
+      spacing: Style.space(1.5)
 
-      SequentialAnimation on opacity {
-        running: root.isPlaying && !root.isBusy
-        loops: Animation.Infinite
-        NumberAnimation { from: 0.4; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
-        NumberAnimation { from: 1.0; to: 0.4; duration: 900; easing.type: Easing.InOutSine }
+      Repeater {
+        model: 4
+
+        Rectangle {
+          width: Style.space(2.5)
+          radius: width / 2
+          color: root.cosmicTheme === 1 ? "#fbbf24" : (root.cosmicTheme === 2 ? "#34d399" : root.accent)
+          anchors.bottom: parent.bottom
+
+          SequentialAnimation on height {
+            running: root.isPlaying && !root.isBusy
+            loops: Animation.Infinite
+            NumberAnimation {
+              from: Style.space(3)
+              to: Style.space([13, 16, 11, 14][index])
+              duration: [320, 240, 280, 210][index]
+              easing.type: Easing.InOutQuad
+            }
+            NumberAnimation {
+              from: Style.space([13, 16, 11, 14][index])
+              to: Style.space(3)
+              duration: [320, 240, 280, 210][index]
+              easing.type: Easing.InOutQuad
+            }
+          }
+        }
       }
     }
 
